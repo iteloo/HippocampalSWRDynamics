@@ -1,0 +1,892 @@
+# Replay Spatio-Temporal Dynamics Analysis (Adapted Version)
+
+This is the forked version of the repo adapted to be used with Hector's data. 
+
+For original instructions, see [Original README](README_original.md)
+
+## Setup Instructions
+
+### Step 1: Installing dependencies
+This repo uses poetry to install and manage its dependencies. Follow the official instructions [here](https://python-poetry.org/docs/) to install onto your dev system. 
+
+Once poetry is installed, run
+```
+poetry install
+```
+which should download and install all the necessary dependencies for this project, including the specified version of the `python3` runtime itself. 
+
+NOTE: This adapted version of the repo uses slightly different versions for the dependency (updated in `myproject.toml`), since the original ones was throwing errors during installing. 
+
+### Step 2: Configuring project
+The scripts in the `scripts/` directly save intermediate results to disk when run. The path for saving and reading is hardcoded in `replay_structure/metadata.py`. 
+
+Edit the `WORKING_PATH` variable in this file to use your own project dir. 
+
+### Step 3: Set up data directories for IO
+For now, manually create the necessary directories for the script to read data from and save data to. 
+```
+mkdir replay_structure/data
+mkdir replay_structure/data/ratday
+mkdir replay_structure/data/ripples
+mkdir replay_structure/data/structure_analysis_input
+mkdir replay_structure/results
+mkdir replay_structure/results/ripples
+```
+
+### Step 4: Move data file into `data/` dir
+```
+mv path/to/OpenFieldData.mat replay_structure/data/
+```
+
+### Step 5: Setup env var
+The source code dir needs to be added to the `PYTHONPATH` env var, so that python runtime knows where to import them whent the scripts are run. 
+```
+PYTHONPATH=$PYTHONPATH:$(pwd)
+```
+Save this to your `~/.bashrc` file if you want this to persist across bash sessions. 
+
+
+## Run Instructions
+The scripts must be run in a specific sequence as they might use intermediate results saved by the previous scripts. 
+
+The full data set contains 8 sessions (4 rats x 2 days each), and multiple types of analysis (ripples, HSEs, etc). However, in the following examples, we will only analyze the first session (Session `0`), for the `ripples` data type. 
+
+### Preprocess ripple data
+```
+poetry run python3 scripts/local/preprocess_spikemat_data.py --data_type ripples --session 0
+```
+sample output: 
+```
+running session rat1day1 with 4cm binsand 3ms time window.
+loading  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/data/ratday/rat1day1_4cm.obj
+Getting ripple spikemats
+[203 174 133 ...   4   2 133]
+[203 174 133 ...   4   2 133]
+2.1254355603745685 1.542078101922343
+saving  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/data/ripples/rat1day1_4cm_3ms.obj
+```
+
+### Reformat data
+```
+poetry run python3 scripts/local/reformat_data_for_structure_analysis.py --data_type ripples --session 0
+```
+sample output: 
+```
+poisson
+running session rat1day1 with 4cm binsand 3ms time window.
+loading  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/data/ripples/rat1day1_4cm_3ms.obj
+saving  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/data/structure_analysis_input/rat1day1_ripples_4cm_3ms_poisson.obj
+```
+
+### Run models
+
+#### Stationary
+```
+poetry run python3 scripts/local/run_model.py --model_name stationary --data_type ripples --session 0
+```
+sample output:
+```
+running stationary model on ripples data, with 4cm bins and 3ms time window
+loading  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/data/structure_analysis_input/rat1day1_ripples_4cm_3ms_poisson.obj
+saving  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/results/ripples/rat1day1_4cm_3ms_poisson_stationary.obj
+```
+
+### Random
+```
+poetry run python3 scripts/local/run_model.py --model_name random --data_type ripples --session 0
+```
+sample output: 
+```
+running random model on ripples data, with 4cm bins and 3ms time window
+loading  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/data/structure_analysis_input/rat1day1_ripples_4cm_3ms_poisson.obj
+saving  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/results/ripples/rat1day1_4cm_3ms_poisson_random.obj
+```
+
+### Diffusion
+
+For the remaining 3 models, the original authors use o2 clusters to parallelize the computation for each session, data_type, time_window, etc, but we will simply run a single set of these parameters locally
+
+```
+poetry run python3 scripts/o2/diffusion_gridsearch.py 0 real ripples 3 poisson
+```
+sample output: 
+```
+running diffusion gridsearch for {session_indicator}
+loading  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/data/structure_analysis_input/rat1day1_ripples_4cm_3ms_poisson.obj
+sd = 0.1
+[ -482.25370323  -220.67401409 -1418.5215786   -292.98373244
+  -324.82861333]
+sd = 0.12
+[ -482.25369783  -220.67401358 -1418.52157673  -292.98372991
+  -324.82860759]
+sd = 0.13
+[ -482.25361968  -220.67400623 -1418.52154963  -292.9836932
+  -324.8285244 ]
+sd = 0.15
+[ -482.24945443  -220.67361513 -1418.52011114  -292.9817435
+  -324.82410439]
+sd = 0.18
+[ -482.08466145  -220.65920847 -1418.47058249  -292.91373059
+  -324.66759698]
+sd = 0.2
+[ -481.29798065  -220.60527445 -1418.33518767  -292.71153431
+  -324.16443012]
+sd = 0.24
+[ -476.22770894  -220.24645662 -1418.4396721   -292.28051915
+  -322.03265487]
+sd = 0.27
+[ -472.23833196  -219.84951221 -1418.77039407  -292.62609978
+  -320.20506093]
+sd = 0.31
+[ -468.47475089  -219.53640788 -1413.78735533  -293.82800967
+  -318.10398757]
+sd = 0.36
+[ -465.88288213  -219.61104866 -1411.22329554  -295.18789678
+  -316.48604093]
+sd = 0.42
+[ -463.94860212  -219.98026793 -1410.67381977  -295.8945137
+  -315.64071852]
+sd = 0.48
+[ -462.19488769  -220.39171233 -1410.86477896  -296.24922902
+  -315.32697474]
+sd = 0.56
+[ -460.22312683  -220.93103798 -1411.49395495  -296.67911534
+  -315.24244078]
+sd = 0.64
+[ -458.78951583  -221.45400247 -1412.09325835  -297.18424432
+  -315.35291153]
+sd = 0.74
+0[ -457.56412188  -222.07654996 -1412.34489785  -297.92716493
+  -315.64310526]
+sd = 0.85
+^R
+[ -456.63200188  -222.71862266 -1412.84579111  -298.82890506
+  -316.06686676]
+sd = 0.98
+[ -455.77829109  -223.41558312 -1412.67279912  -299.92886809
+  -316.63567664]
+sd = 1.1
+[ -454.90975356  -224.16736578 -1411.061653    -301.26531395
+  -317.37980824]
+sd = 1.3
+[ -454.21547219  -224.83463423 -1410.13428557  -302.6454093
+  -318.1903282 ]
+sd = 1.5
+[ -453.69773766  -225.45733767 -1409.994557    -304.22931364
+  -319.14844002]
+sd = 1.7
+[ -453.37390651  -225.92990869 -1410.45197263  -306.01048909
+  -320.24216945]
+sd = 2.0
+[ -453.17976312  -226.11625829 -1411.01578054  -308.03662718
+  -321.50605898]
+sd = 2.3
+[ -453.10932281  -226.08873664 -1411.30813498  -310.23650874
+  -322.92463568]
+sd = 2.7
+[ -453.24797878  -226.11749751 -1411.05565515  -312.56649528
+  -324.52220261]
+sd = 3.1
+[ -453.67799128  -226.34362151 -1410.41200171  -314.92714442
+  -326.26949618]
+sd = 3.6
+[ -454.43191531  -226.78179863 -1410.0906611   -317.37039577
+  -328.17193582]
+sd = 4.1
+[ -455.53897053  -227.41680226 -1410.46324823  -320.01962562  -330.25957034]
+sd = 4.7
+[ -456.97996639  -228.19571168 -1411.51507082  -322.82183566
+  -332.47433405]
+sd = 5.5
+[ -458.74255214  -229.07379565 -1412.873185    -325.74538211
+  -334.82751865]
+sd = 6.3
+[ -460.6561037   -229.98367079 -1413.99394842  -328.70001539
+  -337.29037511]
+saving  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/results/ripples/rat1day1_4cm_3ms_poisson_diffusion_gridsearch.obj
+done
+```
+
+### Momentum
+```
+poetry run python3 scripts/o2/momentum_gridsearch_ratdayripple.py 0 real ripples 3 poisson 1
+```
+sample output: 
+```
+running diffusion gridsearch for {session_indicator}
+loading  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/data/structure_analysis_input/rat1day1_ripples_4cm_3ms_poisson.obj
+sd = 4e+01
+decay = 1
+LIKELIHOOD:  -482.25306903300664463
+decay = 25
+LIKELIHOOD:  -482.25355621245989182
+decay = 50
+LIKELIHOOD:  -482.25366869000092354
+decay = 75
+LIKELIHOOD:  -482.25369266367696436
+decay = 100
+LIKELIHOOD:  -482.2536966610872476
+decay = 200
+LIKELIHOOD:  -482.2536882155629112
+decay = 300
+LIKELIHOOD:  -482.25370322764297523
+decay = 400
+LIKELIHOOD:  -482.25370322764297693
+decay = 500
+LIKELIHOOD:  -482.25370322764297693
+decay = 800
+LIKELIHOOD:  -482.25370322764297693
+sd = 4.3e+01
+decay = 1
+LIKELIHOOD:  -482.22530217704542305
+decay = 25
+LIKELIHOOD:  -482.24844563727835853
+decay = 50
+LIKELIHOOD:  -482.25198911841024696
+decay = 75
+LIKELIHOOD:  -482.25253120934463646
+decay = 100
+LIKELIHOOD:  -482.2524637295980047
+decay = 200
+LIKELIHOOD:  -482.25177015325144383
+decay = 300
+LIKELIHOOD:  -482.2537032276422411
+decay = 400
+LIKELIHOOD:  -482.2537032276429769
+decay = 500
+LIKELIHOOD:  -482.25370322764297693
+decay = 800
+LIKELIHOOD:  -482.25370322764297693
+sd = 4.7e+01
+decay = 1
+LIKELIHOOD:  -481.06081055195265858
+decay = 25
+LIKELIHOOD:  -481.91736313744507286
+decay = 50
+LIKELIHOOD:  -482.13003124119425868
+decay = 75
+LIKELIHOOD:  -482.1515949476581413
+decay = 100
+LIKELIHOOD:  -482.1392171654192842
+decay = 200
+LIKELIHOOD:  -482.15168258868309425
+decay = 300
+LIKELIHOOD:  -482.25370322751750873
+decay = 400
+LIKELIHOOD:  -482.25370322764282238
+decay = 500
+LIKELIHOOD:  -482.25370322764297737
+decay = 800
+LIKELIHOOD:  -482.25370322764297693
+sd = 5.1e+01
+decay = 1
+LIKELIHOOD:  -477.43124095109322763
+decay = 25
+LIKELIHOOD:  -478.9595272250600942
+decay = 50
+LIKELIHOOD:  -480.0377662549215707
+decay = 75
+LIKELIHOOD:  -480.33276464350299664
+decay = 100
+LIKELIHOOD:  -480.27699829020739888
+decay = 200
+LIKELIHOOD:  -480.8846667695434545
+decay = 300
+LIKELIHOOD:  -482.25370321587639302
+decay = 400
+LIKELIHOOD:  -482.25370322761365094
+decay = 500
+LIKELIHOOD:  -482.25370322764292194
+decay = 800
+LIKELIHOOD:  -482.25370322764297693
+sd = 5.5e+01
+decay = 1
+LIKELIHOOD:  -473.9976858674551738
+decay = 25
+LIKELIHOOD:  -475.3656407705826996
+decay = 50
+LIKELIHOOD:  -476.49129118304041228
+decay = 75
+LIKELIHOOD:  -477.00185808149270048
+decay = 100
+LIKELIHOOD:  -477.05272980834394095
+decay = 200
+LIKELIHOOD:  -478.4528587305000658
+decay = 300
+LIKELIHOOD:  -482.25370250191138527
+decay = 400
+LIKELIHOOD:  -482.25370322501445988
+decay = 500
+LIKELIHOOD:  -482.2537032276274381
+decay = 800
+LIKELIHOOD:  -482.25370322764297693
+sd = 5.9e+01
+decay = 1
+LIKELIHOOD:  -470.96066502751937574
+decay = 25
+LIKELIHOOD:  -472.2074374931420933
+decay = 50
+LIKELIHOOD:  -473.25081366340877168
+decay = 75
+LIKELIHOOD:  -473.8944574816612474
+decay = 100
+LIKELIHOOD:  -474.12283823938541766
+decay = 200
+LIKELIHOOD:  -476.25406373807337285
+decay = 300
+LIKELIHOOD:  -482.25366856876367894
+decay = 400
+LIKELIHOOD:  -482.25370310491063236
+decay = 500
+LIKELIHOOD:  -482.25370322610679813
+decay = 800
+LIKELIHOOD:  -482.25370322764297643
+sd = 6.4e+01
+decay = 1
+LIKELIHOOD:  -468.105036545600873
+decay = 25
+LIKELIHOOD:  -469.36410204861194845
+decay = 50
+LIKELIHOOD:  -470.31095076500913862
+decay = 75
+LIKELIHOOD:  -470.99939539539933236
+decay = 100
+LIKELIHOOD:  -471.42597828239648014
+decay = 200
+LIKELIHOOD:  -474.4024320179812503
+decay = 300
+LIKELIHOOD:  -482.25240914639997786
+decay = 400
+LIKELIHOOD:  -482.25369992258238624
+decay = 500
+LIKELIHOOD:  -482.25370314998021834
+decay = 800
+LIKELIHOOD:  -482.25370322764255182
+sd = 6.9e+01
+decay = 1
+LIKELIHOOD:  -465.159698305692559
+decay = 25
+LIKELIHOOD:  -466.59385351874839962
+decay = 50
+LIKELIHOOD:  -467.53978670293204575
+decay = 75
+LIKELIHOOD:  -468.22030156876322848
+decay = 100
+LIKELIHOOD:  -468.77420526121012573
+decay = 200
+LIKELIHOOD:  -472.73223168034775235
+decay = 300
+LIKELIHOOD:  -482.21919613428261933
+decay = 400
+LIKELIHOOD:  -482.2536472655025778
+decay = 500
+LIKELIHOOD:  -482.25370104007391425
+decay = 800
+LIKELIHOOD:  -482.25370322757313107
+sd = 7.5e+01
+decay = 1
+LIKELIHOOD:  -462.02519823460350254
+decay = 25
+LIKELIHOOD:  -463.66970549195451615
+decay = 50
+LIKELIHOOD:  -464.8169537864340448
+decay = 75
+LIKELIHOOD:  -465.54977687545122927
+decay = 100
+LIKELIHOOD:  -466.16875421846798383
+decay = 200
+LIKELIHOOD:  -470.9774743730562832
+decay = 300
+LIKELIHOOD:  -481.73359687318511696
+decay = 400
+LIKELIHOOD:  -482.25303186277795003
+decay = 500
+LIKELIHOOD:  -482.25366514343211952
+decay = 800
+LIKELIHOOD:  -482.25370322209433405
+sd = 8.1e+01
+decay = 1
+LIKELIHOOD:  -459.05093602427388905
+decay = 25
+LIKELIHOOD:  -460.77497702216444897
+decay = 50
+LIKELIHOOD:  -462.18970679912382246
+decay = 75
+LIKELIHOOD:  -463.0785625008183414
+decay = 100
+LIKELIHOOD:  -463.7628850196344127
+decay = 200
+LIKELIHOOD:  -469.0908288869096153
+decay = 300
+LIKELIHOOD:  -479.87559338864648836
+decay = 400
+LIKELIHOOD:  -482.24728057285031943
+decay = 500
+LIKELIHOOD:  -482.25326464988865904
+decay = 800
+LIKELIHOOD:  -482.2537029964434489
+sd = 8.8e+01
+decay = 1
+LIKELIHOOD:  -456.5467659598937521
+decay = 25
+LIKELIHOOD:  -458.23447794175252917
+decay = 50
+LIKELIHOOD:  -459.76948832857917093
+decay = 75
+LIKELIHOOD:  -460.84972964028766151
+decay = 100
+LIKELIHOOD:  -461.61947093862748023
+decay = 200
+LIKELIHOOD:  -467.2129765458810567
+decay = 300
+LIKELIHOOD:  -477.48448874359812602
+decay = 400
+LIKELIHOOD:  -482.19682632752697882
+decay = 500
+LIKELIHOOD:  -482.25009466370900274
+decay = 800
+LIKELIHOOD:  -482.25369766423447856
+sd = 9.5e+01
+decay = 1
+LIKELIHOOD:  -454.605637598714967
+decay = 25
+LIKELIHOOD:  -456.15545823072184836
+decay = 50
+LIKELIHOOD:  -457.65682662862149427
+decay = 75
+LIKELIHOOD:  -458.8676411853634984
+decay = 100
+LIKELIHOOD:  -459.73627699334115226
+decay = 200
+LIKELIHOOD:  -465.38839369300375115
+decay = 300
+LIKELIHOOD:  -475.07393025597267028
+decay = 400
+LIKELIHOOD:  -481.7791026461789133
+decay = 500
+LIKELIHOOD:  -482.23053287559478916
+decay = 800
+LIKELIHOOD:  -482.25361915027029977
+sd = 1e+02
+decay = 1
+LIKELIHOOD:  -453.32209737654219683
+decay = 25
+LIKELIHOOD:  -454.59260936087562743
+decay = 50
+LIKELIHOOD:  -455.98910994861488097
+decay = 75
+LIKELIHOOD:  -457.22815529756559372
+decay = 100
+LIKELIHOOD:  -458.16450583573057181
+decay = 200
+LIKELIHOOD:  -463.62347722718718315
+decay = 300
+LIKELIHOOD:  -472.7341090261625373
+decay = 400
+LIKELIHOOD:  -480.01792328528189596
+decay = 500
+LIKELIHOOD:  -482.12343394654606346
+decay = 800
+LIKELIHOOD:  -482.25285032201834765
+sd = 1.1e+02
+decay = 1
+LIKELIHOOD:  -452.69515954743138997
+decay = 25
+LIKELIHOOD:  -453.5916437329682678
+decay = 50
+LIKELIHOOD:  -454.83970183264424877
+decay = 75
+LIKELIHOOD:  -456.03748862189572458
+decay = 100
+LIKELIHOOD:  -456.99434317931815905
+decay = 200
+LIKELIHOOD:  -461.98057341929331823
+decay = 300
+LIKELIHOOD:  -470.51555904322037835
+decay = 400
+LIKELIHOOD:  -477.24366398693492122
+decay = 500
+LIKELIHOOD:  -481.55181283166973297
+decay = 800
+LIKELIHOOD:  -482.2475255768512863
+sd = 1.2e+02
+decay = 1
+LIKELIHOOD:  -452.55888251624641205
+decay = 25
+LIKELIHOOD:  -453.0650340706451523
+decay = 50
+LIKELIHOOD:  -454.12583723724951282
+decay = 75
+LIKELIHOOD:  -455.25438235365934075
+decay = 100
+LIKELIHOOD:  -456.21327576712428498
+decay = 200
+LIKELIHOOD:  -460.55283846188760608
+decay = 300
+LIKELIHOOD:  -468.350137433003648
+decay = 400
+LIKELIHOOD:  -474.37834353767737852
+decay = 500
+LIKELIHOOD:  -479.63240037353019443
+decay = 800
+LIKELIHOOD:  -482.21977070315731817
+sd = 1.3e+02
+decay = 1
+LIKELIHOOD:  -452.69953161206171852
+decay = 25
+LIKELIHOOD:  -452.84646131768852598
+decay = 50
+LIKELIHOOD:  -453.68908586082528825
+decay = 75
+LIKELIHOOD:  -454.72883983456743268
+decay = 100
+LIKELIHOOD:  -455.68900510960305952
+decay = 200
+LIKELIHOOD:  -459.39882871089207667
+decay = 300
+LIKELIHOOD:  -466.17631779123161193
+decay = 400
+LIKELIHOOD:  -471.73338431956996786
+decay = 500
+LIKELIHOOD:  -476.75578991443080423
+decay = 800
+LIKELIHOOD:  -482.10114843418043953
+sd = 1.4e+02
+decay = 1
+LIKELIHOOD:  -452.95631147579022815
+decay = 25
+LIKELIHOOD:  -452.7952862982784926
+decay = 50
+LIKELIHOOD:  -453.40200481625408307
+decay = 75
+LIKELIHOOD:  -454.32694425334646018
+decay = 100
+LIKELIHOOD:  -455.27477667225580085
+decay = 200
+LIKELIHOOD:  -458.51525362823613757
+decay = 300
+LIKELIHOOD:  -464.1201693332773457
+decay = 400
+LIKELIHOOD:  -469.37653295309137608
+decay = 500
+LIKELIHOOD:  -473.8017671108706411
+decay = 800
+LIKELIHOOD:  -481.64135356085920203
+sd = 1.5e+02
+decay = 1
+LIKELIHOOD:  -453.245896712186573
+decay = 25
+LIKELIHOOD:  -452.83089294413680023
+decay = 50
+LIKELIHOOD:  -453.19688018313176034
+decay = 75
+LIKELIHOOD:  -453.98060761123887522
+decay = 100
+LIKELIHOOD:  -454.88338833189503937
+decay = 200
+LIKELIHOOD:  -457.84702820845400978
+decay = 300
+LIKELIHOOD:  -462.34587487790625432
+decay = 400
+LIKELIHOOD:  -467.28409267911084576
+decay = 500
+LIKELIHOOD:  -471.09806147661351441
+decay = 800
+LIKELIHOOD:  -480.20554868432778667
+sd = 1.7e+02
+decay = 1
+LIKELIHOOD:  -453.54479011929969295
+decay = 25
+LIKELIHOOD:  -452.92358176250349974
+decay = 50
+LIKELIHOOD:  -453.05209543909624448
+decay = 75
+LIKELIHOOD:  -453.67195893838403148
+decay = 100
+LIKELIHOOD:  -454.49177158148176794
+decay = 200
+LIKELIHOOD:  -457.31936762952820885
+decay = 300
+LIKELIHOOD:  -460.90400732800934136
+decay = 400
+LIKELIHOOD:  -465.38022214103045104
+decay = 500
+LIKELIHOOD:  -468.75969676633284994
+decay = 800
+LIKELIHOOD:  -477.68208953655997537
+sd = 1.8e+02
+decay = 1
+LIKELIHOOD:  -453.85583975049759237
+decay = 25
+LIKELIHOOD:  -453.0710201137396582
+decay = 50
+LIKELIHOOD:  -452.97219534993777557
+decay = 75
+LIKELIHOOD:  -453.41024447918206214
+decay = 100
+LIKELIHOOD:  -454.11516643792380318
+decay = 200
+LIKELIHOOD:  -456.86879494602623702
+decay = 300
+LIKELIHOOD:  -459.76649258358112135
+decay = 400
+LIKELIHOOD:  -463.63133770288070493
+decay = 500
+LIKELIHOOD:  -466.8177972081680065
+decay = 800
+LIKELIHOOD:  -474.80287914812879524
+sd = 1.9e+02
+decay = 1
+LIKELIHOOD:  -454.1849507483902531
+decay = 25
+LIKELIHOOD:  -453.2775656710779857
+decay = 50
+LIKELIHOOD:  -452.9685156182175322
+decay = 75
+LIKELIHOOD:  -453.2129189675741778
+decay = 100
+LIKELIHOOD:  -453.77897164990437737
+decay = 200
+LIKELIHOOD:  -456.44925814994961302
+decay = 300
+LIKELIHOOD:  -458.8702170549610656
+decay = 400
+LIKELIHOOD:  -462.09663919178402688
+decay = 500
+LIKELIHOOD:  -465.17052097874941016
+decay = 800
+LIKELIHOOD:  -472.02573362889455386
+sd = 2.1e+02
+decay = 1
+LIKELIHOOD:  -454.53069202359155776
+decay = 25
+LIKELIHOOD:  -453.54295085813298624
+decay = 50
+LIKELIHOOD:  -453.04844106229576609
+decay = 75
+LIKELIHOOD:  -453.09575777589724987
+decay = 100
+LIKELIHOOD:  -453.50530860393802898
+decay = 200
+LIKELIHOOD:  -456.0319299335490625
+decay = 300
+LIKELIHOOD:  -458.1503512634544833
+decay = 400
+LIKELIHOOD:  -460.81821842397419564
+decay = 500
+LIKELIHOOD:  -463.66506357246703582
+decay = 800
+LIKELIHOOD:  -469.6006399367819916
+sd = 2.3e+02
+decay = 1
+LIKELIHOOD:  -454.88428557681918055
+decay = 25
+LIKELIHOOD:  -453.8583979565072917
+decay = 50
+LIKELIHOOD:  -453.21158046610846976
+decay = 75
+LIKELIHOOD:  -453.068519643342944
+decay = 100
+LIKELIHOOD:  -453.31020547309746918
+decay = 200
+LIKELIHOOD:  -455.60427751963620488
+decay = 300
+LIKELIHOOD:  -457.55504512655053048
+decay = 400
+LIKELIHOOD:  -459.77356486909289682
+decay = 500
+LIKELIHOOD:  -462.28314936443129823
+decay = 800
+LIKELIHOOD:  -467.64992945445549563
+sd = 2.5e+02
+decay = 1
+LIKELIHOOD:  -455.23557070156895282
+decay = 25
+LIKELIHOOD:  -454.2077557303965941
+decay = 50
+LIKELIHOOD:  -453.44966019025554418
+decay = 75
+LIKELIHOOD:  -453.1334328515795517
+decay = 100
+LIKELIHOOD:  -453.20363744832092587
+decay = 200
+LIKELIHOOD:  -455.16976392805917848
+decay = 300
+LIKELIHOOD:  -457.04425376810130402
+decay = 400
+LIKELIHOOD:  -458.91505941849989836
+decay = 500
+LIKELIHOOD:  -461.0726969304386427
+decay = 800
+LIKELIHOOD:  -466.14158185950186533
+sd = 2.7e+02
+decay = 1
+LIKELIHOOD:  -455.57885609387940265
+decay = 25
+LIKELIHOOD:  -454.57132519765694442
+decay = 50
+LIKELIHOOD:  -453.74770977994246274
+decay = 75
+LIKELIHOOD:  -453.2855201935599728
+decay = 100
+LIKELIHOOD:  -453.1898634548348642
+decay = 200
+LIKELIHOOD:  -454.74653893496994478
+decay = 300
+LIKELIHOOD:  -456.58460954787927646
+decay = 400
+LIKELIHOOD:  -458.19991704919624617
+decay = 500
+LIKELIHOOD:  -460.03880668991435948
+decay = 800
+LIKELIHOOD:  -464.90801264703225543
+sd = 2.9e+02
+decay = 1
+LIKELIHOOD:  -455.9156242965076054
+decay = 25
+LIKELIHOOD:  -454.9317570281475258
+decay = 50
+LIKELIHOOD:  -454.08577483892410886
+decay = 75
+LIKELIHOOD:  -453.5133408167544866
+decay = 100
+LIKELIHOOD:  -453.26720794491076555
+decay = 200
+LIKELIHOOD:  -454.3605083502397026
+decay = 300
+LIKELIHOOD:  -456.14756204452705252
+decay = 400
+LIKELIHOOD:  -457.59489368637552548
+decay = 500
+LIKELIHOOD:  -459.1591950976690657
+decay = 800
+LIKELIHOOD:  -463.7544796460363169
+sd = 3.1e+02
+decay = 1
+LIKELIHOOD:  -456.25367035925208012
+decay = 25
+LIKELIHOOD:  -455.2800837014175355
+decay = 50
+LIKELIHOOD:  -454.44200863980016397
+decay = 75
+LIKELIHOOD:  -453.79987139451270234
+decay = 100
+LIKELIHOOD:  -453.42781213931766704
+decay = 200
+LIKELIHOOD:  -454.03565994411300372
+decay = 300
+LIKELIHOOD:  -455.71378598344100586
+decay = 400
+LIKELIHOOD:  -457.07093976366805646
+decay = 500
+LIKELIHOOD:  -458.410045346040191
+decay = 800
+LIKELIHOOD:  -462.60676171081812266
+sd = 3.4e+02
+decay = 1
+LIKELIHOOD:  -456.6039693479672636
+decay = 25
+LIKELIHOOD:  -455.61822006414344463
+decay = 50
+LIKELIHOOD:  -454.7976906320976001
+decay = 75
+LIKELIHOOD:  -454.12403004668987402
+decay = 100
+LIKELIHOOD:  -453.6576983273510101
+decay = 200
+LIKELIHOOD:  -453.7885234378801509
+decay = 300
+LIKELIHOOD:  -455.28020993885302006
+decay = 400
+LIKELIHOOD:  -456.59931830796368588
+decay = 500
+LIKELIHOOD:  -457.77022036691152745
+decay = 800
+LIKELIHOOD:  -461.4987957339438555
+sd = 3.7e+02
+decay = 1
+LIKELIHOOD:  -456.9774224106485075
+decay = 25
+LIKELIHOOD:  -455.95684013967074322
+decay = 50
+LIKELIHOOD:  -455.14336025742183156
+decay = 75
+LIKELIHOOD:  -454.46455084962423135
+decay = 100
+LIKELIHOOD:  -453.93814441082432168
+decay = 200
+LIKELIHOOD:  -453.62745050522627566
+decay = 300
+LIKELIHOOD:  -454.86095483516223334
+decay = 400
+LIKELIHOOD:  -456.15261688959109743
+decay = 500
+LIKELIHOOD:  -457.21655293985945515
+decay = 800
+LIKELIHOOD:  -460.47273905505571337
+sd = 4e+02
+decay = 1
+LIKELIHOOD:  -457.38062596408686247
+decay = 25
+LIKELIHOOD:  -456.30873661316808645
+decay = 50
+LIKELIHOOD:  -455.48034957107558793
+decay = 75
+LIKELIHOOD:  -454.80443928357987213
+decay = 100
+LIKELIHOOD:  -454.24769271673010013
+decay = 200
+LIKELIHOOD:  -453.554557502422045
+decay = 300
+LIKELIHOOD:  -454.4807307301622342
+decay = 400
+LIKELIHOOD:  -455.7124742610043989
+decay = 500
+LIKELIHOOD:  -456.72315374715558373
+decay = 800
+LIKELIHOOD:  -459.55146837227795453
+saving  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/results/ripples/rat1day1_spikemat0_4cm_3ms_poisson_momentum_gridsearch.obj
+done
+```
+
+### Standard Gaussian
+``` 
+poetry run python3 scripts/o2/sg_gridsearch.py 0 real ripples 3 poisson real
+```
+sample output: 
+```
+running diffusion gridsearch for {session_indicator}
+loading  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/data/structure_analysis_input/rat1day1_ripples_4cm_3ms_poisson.obj
+sd = 0.01
+sd = 0.01
+sd = 0.01
+sd = 0.02
+sd = 0.02
+sd = 0.02
+sd = 0.03
+sd = 0.04
+sd = 0.04
+sd = 0.05
+sd = 0.06
+sd = 0.07
+sd = 0.09
+sd = 0.11
+sd = 0.13
+sd = 0.15
+sd = 0.19
+sd = 0.22
+sd = 0.27
+sd = 0.32
+sd = 0.39
+sd = 0.46
+sd = 0.56
+sd = 0.67
+sd = 0.8
+sd = 0.96
+sd = 1.1
+sd = 1.4
+sd = 1.7
+sd = 2.0
+saving  /Users/iteloo/dev/hippocampal-replay/vendor/HippocampalSWRDynamics/replay_structure/results/ripples/rat1day1_4cm_3ms_poisson_stationary_gaussian_gridsearch.obj
+done
+```
