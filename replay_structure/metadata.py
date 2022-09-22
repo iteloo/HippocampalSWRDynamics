@@ -12,15 +12,15 @@ from typing import Union, NamedTuple, Optional, List, Tuple
 # --------------------------------------------------------------------------------------
 # DEFINE PATHS FOR LOADING/SAVING DATA
 
-
-DATA_PATH = "/Users/emmakrause/Documents/PhD/Lab/replay_structure/data"
-RESULTS_PATH = "/Users/emmakrause/Documents/PhD/Lab/replay_structure/results"
-FIGURES_PATH = "/Users/emmakrause/Documents/PhD/Lab/replay_structure/figures"
+WORKING_PATH = "/path/to/HippocampalSWRDynamics"
+DATA_PATH = f"{WORKING_PATH}/replay_structure/data"
+RESULTS_PATH = f"{WORKING_PATH}/replay_structure/results"
+FIGURES_PATH = f"{WORKING_PATH}/replay_structure/figures"
 PLOTTING_FOLDER = (
-    "/Users/emmakrause/Documents/PhD/Lab/replay_structure/results/plotting_temp"
+    f"{WORKING_PATH}/replay_structure/results/plotting_temp"
 )
-DATA_PATH_O2 = "/home/ek195/replay_structure/data"
-RESULTS_PATH_O2 = "/home/ek195/replay_structure/results"
+DATA_PATH_O2 = f"{WORKING_PATH}/replay_structure/data"
+RESULTS_PATH_O2 = f"{WORKING_PATH}/replay_structure/results"
 
 # --------------------------------------------------------------------------------------
 # DEFINE MODEL TYPES
